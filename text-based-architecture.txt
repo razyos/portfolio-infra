@@ -1,0 +1,39 @@
+[VPC]
+  |
+  |-- [Public Subnets]
+  |     |
+  |     |-- [EKS Cluster]
+  |     |     |
+  |     |     |-- [Control Plane]
+  |     |     |     |-- Managed by AWS
+  |     |     |     |-- IAM Role: eks-cluster-role
+  |     |     |     |-- Security Group: eks_cluster_sg
+  |     |     |
+  |     |     |-- [Node Group]
+  |     |           |-- EC2 Instances
+  |     |           |-- IAM Role: eks-node-group-role
+  |     |           |-- Auto Scaling Group
+  |     |
+  |     |-- [Internet Gateway]
+  |
+  |-- [Route Table]
+        |-- Routes to Internet Gateway
+
+This architecture represents:
+
+A VPC containing public subnets where the EKS cluster is deployed.
+The EKS Cluster, which consists of:
+
+A Control Plane managed by AWS, associated with an IAM role and security group.
+A Node Group, which is a set of EC2 instances managed by an Auto Scaling Group.
+
+
+An Internet Gateway allowing internet access.
+A Route Table directing traffic to the Internet Gateway.
+
+The main components you've defined in your Terraform code are:
+
+EKS Cluster: The main Kubernetes control plane.
+EKS Node Group: The worker nodes that run your Kubernetes pods.
+IAM Roles: One for the EKS cluster and one for the node group, allowing them to interact with other AWS services.
+IAM Policies: Attached to the roles to grant necessary permissions.
