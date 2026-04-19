@@ -1,10 +1,11 @@
 #!/bin/bash
+set -euo pipefail
 
 terraform init -backend-config=backend-config.hcl
 WORKSPACE="$1"
 
 if [ -z "$WORKSPACE" ]; then
-  echo "No workspace specified. Usage: ./manage_workspace.sh <workspace-name>"
+  echo "No workspace specified. Usage: ./run.sh <workspace-name>"
   exit 1
 fi
 

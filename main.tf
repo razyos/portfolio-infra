@@ -50,23 +50,24 @@ module "eks_addons" {
   ebs_csi_driver_addon_version   = var.ebs_csi_driver_addon_version
 }
 
-data "aws_secretsmanager_secret" "gitlab_ssh_key" {
-  name = var.gitlab_ssh_key_secret_name
+data "aws_secretsmanager_secret" "github_ssh_key" {
+  name = var.github_ssh_key_secret_name
 }
 
-data "aws_secretsmanager_secret_version" "gitlab_ssh_key" {
-  secret_id = data.aws_secretsmanager_secret.gitlab_ssh_key.id
+data "aws_secretsmanager_secret_version" "github_ssh_key" {
+  secret_id = data.aws_secretsmanager_secret.github_ssh_key.id
 }
+
 module "argocd" {
-  source        = "./modules/argocd"
-  argocd_namespace = var.argocd_namespace
+  source               = "./modules/argocd"
+  argocd_namespace     = var.argocd_namespace
   argocd_chart_version = var.argocd_chart_version
-  argocd_values = var.argocd_values
-  gitlab_repo_url = var.gitlab_repo_url
-  gitlab_ssh_key = data.aws_secretsmanager_secret_version.gitlab_ssh_key.secret_string
-  gitlab_repo_revision = var.gitlab_repo_revision
-  infra_apps_path = var.infra_apps_path
-  depends_on = [module.eks, module.eks_addons]
+  argocd_values        = var.argocd_values
+  github_repo_url      = var.github_repo_url
+  github_ssh_key       = data.aws_secretsmanager_secret_version.github_ssh_key.secret_string
+  github_repo_revision = var.github_repo_revision
+  infra_apps_path      = var.infra_apps_path
+  depends_on           = [module.eks, module.eks_addons]
 }
 
 
