@@ -9,13 +9,13 @@ variable "kubernetes_version" {
 }
 
 variable "subnet_ids" {
-  description = "List of subnet IDs for the EKS cluster"
+  description = "List of subnet IDs for the EKS control plane (public)"
   type        = list(string)
 }
 
-variable "vpc_id" {
-  description = "ID of the VPC where the EKS cluster will be created"
-  type        = string
+variable "node_subnet_ids" {
+  description = "List of subnet IDs for the EKS worker nodes (private)"
+  type        = list(string)
 }
 
 variable "instance_type" {
@@ -51,6 +51,12 @@ variable "endpoint_private_access" {
 variable "endpoint_public_access" {
   description = "Whether the Amazon EKS public API server endpoint is enabled"
   type        = bool
+}
+
+variable "public_access_cidrs" {
+  description = "List of CIDR blocks allowed to access the EKS public API endpoint"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }
 
 variable "eks_cluster_sg_id" {

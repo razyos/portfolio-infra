@@ -2,7 +2,8 @@
 aws_region = "us-east-1"
 
 # ── Network ────────────────────────────────────────────────────────────────────
-vpc_cidr          = "10.0.0.0/24"
+# /20 gives 4x /22 subnets (1024 IPs each) — 2 public + 2 private
+vpc_cidr          = "10.0.0.0/20"
 number_of_subnets = 2
 
 # ── General ────────────────────────────────────────────────────────────────────
@@ -18,6 +19,8 @@ kubernetes_version      = "1.31"
 instance_type           = "t3a.medium"
 endpoint_private_access = false
 endpoint_public_access  = true
+# Restrict API server access to your office/VPN IP in production
+public_access_cidrs = ["0.0.0.0/0"]
 
 # ── EKS Node Group ─────────────────────────────────────────────────────────────
 node_group_name = "portfolio-ng"
@@ -26,10 +29,10 @@ min_size        = 2
 max_size        = 5
 
 # ── EKS Add-ons ────────────────────────────────────────────────────────────────
-enable_vpc_cni_addon         = true
-enable_coredns_addon         = true
-enable_kube_proxy_addon      = true
-enable_ebs_csi_driver_addon  = true
+enable_vpc_cni_addon        = true
+enable_coredns_addon        = true
+enable_kube_proxy_addon     = true
+enable_ebs_csi_driver_addon = true
 
 vpc_cni_addon_version        = "v1.19.0-eksbuild.1"
 coredns_addon_version        = "v1.11.3-eksbuild.1"
