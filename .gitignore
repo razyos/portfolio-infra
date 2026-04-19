@@ -11,9 +11,10 @@ crash.log
 # Terraform plan output files
 *.tfplan
 
-# Sensitive variable files
+# Sensitive variable files — commit example.tfvars only, never real secrets
 *.tfvars
 *.tfvars.json
+!example.tfvars
 
 # Override files (e.g. for local development)
 override.tf
