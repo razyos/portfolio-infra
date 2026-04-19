@@ -36,7 +36,7 @@ resource "aws_subnet" "public" {
   vpc_id                  = aws_vpc.main.id
   cidr_block              = var.subnet_cidrs[count.index]
   availability_zone       = var.final_azs[count.index]
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false
 
   tags = merge(var.base_tags, {
     Name                                        = "${var.env}-${var.cluster_name}-public-subnet-${count.index + 1}"
@@ -127,14 +127,6 @@ resource "aws_security_group" "eks_cluster" {
   description = "Controls access to the EKS cluster API server"
   vpc_id      = aws_vpc.main.id
 
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(var.base_tags, {
     Name = "${var.env}-${var.cluster_name}-cluster-sg"
   })
@@ -145,18 +137,43 @@ resource "aws_security_group" "eks_nodes" {
   description = "Controls traffic between EKS worker nodes and the control plane"
   vpc_id      = aws_vpc.main.id
 
-  egress {
-    description = "Allow all outbound traffic"
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
   tags = merge(var.base_tags, {
     Name                                        = "${var.env}-${var.cluster_name}-node-sg"
     "kubernetes.io/cluster/${var.cluster_name}" = "owned"
   })
+}
+
+# Cluster SG egress: control plane can reach nodes (kubelet, metrics, logs)
+resource "aws_security_group_rule" "cluster_egress_to_nodes" {
+  description              = "Allow control plane to reach worker nodes"
+  type                     = "egress"
+  from_port                = 0
+  to_port                  = 65535
+  protocol                 = "tcp"
+  security_group_id        = aws_security_group.eks_cluster.id
+  source_security_group_id = aws_security_group.eks_nodes.id
+}
+
+# Node SG egress: HTTPS to anywhere for ECR pulls and AWS API calls
+resource "aws_security_group_rule" "node_egress_https" {
+  description       = "Allow nodes outbound HTTPS to AWS APIs and container registries"
+  type              = "egress"
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.eks_nodes.id
+  cidr_blocks       = ["0.0.0.0/0"]
+}
+
+# Node SG egress: all traffic within the VPC (pod-to-pod, DNS, node-to-node)
+resource "aws_security_group_rule" "node_egress_intra_vpc" {
+  description       = "Allow nodes to communicate freely within the VPC"
+  type              = "egress"
+  from_port         = 0
+  to_port           = 65535
+  protocol          = "-1"
+  security_group_id = aws_security_group.eks_nodes.id
+  cidr_blocks       = [var.vpc_cidr]
 }
 
 resource "aws_security_group_rule" "cluster_inbound" {

@@ -52,7 +52,6 @@ variable "endpoint_public_access" {
 variable "public_access_cidrs" {
   description = "CIDR blocks allowed to reach the EKS public API endpoint"
   type        = list(string)
-  default     = ["0.0.0.0/0"]
 }
 
 # EKS Node Group Variables
