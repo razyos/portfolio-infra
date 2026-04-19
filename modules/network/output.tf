@@ -8,6 +8,11 @@ output "public_subnet_ids" {
   value       = aws_subnet.public[*].id
 }
 
+output "private_subnet_ids" {
+  description = "List of private subnet IDs (used for EKS worker nodes)"
+  value       = aws_subnet.private[*].id
+}
+
 output "eks_cluster_sg_id" {
   description = "ID of the EKS cluster security group"
   value       = aws_security_group.eks_cluster.id
@@ -23,7 +28,7 @@ output "vpc_cidr_block" {
   value       = aws_vpc.main.cidr_block
 }
 
-output "public_route_table_id" {
-  description = "ID of the public route table"
-  value       = aws_route_table.public.id
+output "nat_gateway_ip" {
+  description = "Public IP of the NAT Gateway"
+  value       = aws_eip.nat.public_ip
 }

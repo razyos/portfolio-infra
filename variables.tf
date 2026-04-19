@@ -5,7 +5,7 @@ variable "aws_region" {
 
 variable "base_tags" {
   description = "Tags to apply to resources"
-  type = map(string)
+  type        = map(string)
 }
 
 variable "vpc_cidr" {
@@ -20,11 +20,6 @@ variable "number_of_subnets" {
 
 variable "instance_type" {
   description = "EC2 instance type"
-  type        = string
-}
-
-variable "key_name" {
-  description = "Name of the key pair to use for instances"
   type        = string
 }
 
@@ -52,6 +47,12 @@ variable "endpoint_private_access" {
 variable "endpoint_public_access" {
   description = "Whether the Amazon EKS public API server endpoint is enabled"
   type        = bool
+}
+
+variable "public_access_cidrs" {
+  description = "CIDR blocks allowed to reach the EKS public API endpoint"
+  type        = list(string)
+  default     = ["0.0.0.0/0"]
 }
 
 # EKS Node Group Variables

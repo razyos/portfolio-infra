@@ -1,3 +1,13 @@
+terraform {
+  required_version = ">= 1.5"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.59"
+    }
+  }
+}
+
 # Declare the aws_caller_identity data source
 data "aws_caller_identity" "current" {}
 
@@ -6,11 +16,11 @@ data "aws_caller_identity" "current" {}
 # VPC CNI (Container Network Interface) Add-on
 # This add-on is responsible for IP address management and network interfaces in the cluster
 resource "aws_eks_addon" "vpc_cni" {
-  count = var.enable_vpc_cni_addon ? 1 : 0  # Only create if enabled
+  count = var.enable_vpc_cni_addon ? 1 : 0 # Only create if enabled
 
   cluster_name = var.cluster_name
   addon_name   = "vpc-cni"
-  
+
   # Use specified version or let AWS manage it
   addon_version = var.vpc_cni_addon_version
 
@@ -32,11 +42,11 @@ resource "aws_eks_addon" "vpc_cni" {
 # CoreDNS Add-on
 # This add-on provides DNS services within the cluster
 resource "aws_eks_addon" "coredns" {
-  count = var.enable_coredns_addon ? 1 : 0  # Only create if enabled
+  count = var.enable_coredns_addon ? 1 : 0 # Only create if enabled
 
   cluster_name = var.cluster_name
   addon_name   = "coredns"
-  
+
   # Use specified version or let AWS manage it
   addon_version = var.coredns_addon_version
 
@@ -55,11 +65,11 @@ resource "aws_eks_addon" "coredns" {
 # kube-proxy Add-on
 # This add-on maintains network rules on each node for communication between pods
 resource "aws_eks_addon" "kube_proxy" {
-  count = var.enable_kube_proxy_addon ? 1 : 0  # Only create if enabled
+  count = var.enable_kube_proxy_addon ? 1 : 0 # Only create if enabled
 
   cluster_name = var.cluster_name
   addon_name   = "kube-proxy"
-  
+
   # Use specified version or let AWS manage it
   addon_version = var.kube_proxy_addon_version
 
@@ -78,7 +88,7 @@ resource "aws_eks_addon" "kube_proxy" {
 # EBS CSI Driver Add-on
 # This add-on provides the EBS CSI driver for dynamically provisioning EBS volumes
 resource "aws_eks_addon" "ebs_csi_driver" {
-  count = var.enable_ebs_csi_driver_addon ? 1 : 0  # Only create if enabled
+  count = var.enable_ebs_csi_driver_addon ? 1 : 0 # Only create if enabled
 
   cluster_name = var.cluster_name
   addon_name   = "aws-ebs-csi-driver"
