@@ -32,10 +32,10 @@ resource "helm_release" "argocd" {
   # depends_on = [kubernetes_namespace.argocd,helm_release.cert_manager_crds]
 }
 
-# GitLab Repo Secret
-resource "kubernetes_secret" "gitlab_repo" {
+# GitHub Repo Secret
+resource "kubernetes_secret" "github_repo" {
   metadata {
-    name      = "gitlab-repo"
+    name      = "github-repo"
     namespace = kubernetes_namespace.argocd.metadata[0].name
     labels = {
       "argocd.argoproj.io/secret-type" = "repository"
@@ -44,8 +44,8 @@ resource "kubernetes_secret" "gitlab_repo" {
 
   data = {
     type          = "git"
-    url           = var.gitlab_repo_url
-    sshPrivateKey = var.gitlab_ssh_key
+    url           = var.github_repo_url
+    sshPrivateKey = var.github_ssh_key
   }
 
   type       = "Opaque"
@@ -63,8 +63,8 @@ metadata:
 spec:
   project: default
   source:
-    repoURL: ${var.gitlab_repo_url}
-    targetRevision: ${var.gitlab_repo_revision}
+    repoURL: ${var.github_repo_url}
+    targetRevision: ${var.github_repo_revision}
     path: ${var.infra_apps_path}
 
   destination:
@@ -76,5 +76,5 @@ spec:
       selfHeal: true
 YAML
 
-  depends_on = [helm_release.argocd, kubernetes_secret.gitlab_repo]
+  depends_on = [helm_release.argocd, kubernetes_secret.github_repo]
 }

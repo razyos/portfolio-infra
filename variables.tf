@@ -125,7 +125,7 @@ variable "argocd_namespace" {
 variable "argocd_chart_version" {
   description = "Version of the ArgoCD Helm chart to install"
   type        = string
-  default     = "5.13.8"
+  default     = "7.7.0"
 }
 
 variable "argocd_values" {
@@ -134,25 +134,25 @@ variable "argocd_values" {
   default     = {}
 }
 
-variable "gitlab_repo_url" {
-  description = "URL of the GitLab repository"
+variable "github_repo_url" {
+  description = "SSH URL of the GitHub charts repository"
   type        = string
 }
 
-variable "gitlab_ssh_key_secret_name" {
-  description = "Name of the AWS Secrets Manager secret containing the GitLab SSH key"
+variable "github_ssh_key_secret_name" {
+  description = "Name of the AWS Secrets Manager secret containing the GitHub SSH key"
   type        = string
 }
 
-variable "gitlab_repo_revision" {
-  description = "GitLab repository revision to use"
+variable "github_repo_revision" {
+  description = "GitHub repository revision (branch) to track"
   type        = string
   default     = "main"
 }
 
 variable "infra_apps_path" {
-  description = "Path in the GitLab repo for infra-apps"
+  description = "Path inside the GitHub repo that contains the ArgoCD ApplicationSets"
   type        = string
-  default     = "infra-apps"
+  default     = "sets"
 }
 

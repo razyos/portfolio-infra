@@ -1,93 +1,179 @@
-# portfolio_infra
+# portfolio-infra
 
+Production-grade AWS EKS platform provisioned with Terraform, wired to ArgoCD for GitOps-driven application delivery.
 
+---
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
+## Architecture
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/jenkins3883827/portfolio_infra.git
-git branch -M main
-git push -uf origin main
+┌─────────────────────────────────────────────────────────┐
+│                        AWS VPC                          │
+│                                                         │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │              Public Subnets (multi-AZ)           │   │
+│  │                                                  │   │
+│  │   ┌──────────────────────────────────────────┐  │   │
+│  │   │              EKS Cluster                 │  │   │
+│  │   │                                          │  │   │
+│  │   │  Control Plane (AWS-managed)             │  │   │
+│  │   │    ├── API logging (api/audit/auth)      │  │   │
+│  │   │    └── OIDC provider (for IRSA)          │  │   │
+│  │   │                                          │  │   │
+│  │   │  Managed Node Group                      │  │   │
+│  │   │    ├── Auto Scaling (min/desired/max)    │  │   │
+│  │   │    └── EBS volume management (IRSA)      │  │   │
+│  │   │                                          │  │   │
+│  │   │  EKS Add-ons                             │  │   │
+│  │   │    ├── VPC-CNI  (IRSA-enabled)           │  │   │
+│  │   │    ├── CoreDNS                           │  │   │
+│  │   │    ├── kube-proxy                        │  │   │
+│  │   │    └── EBS CSI Driver                    │  │   │
+│  │   │                                          │  │   │
+│  │   │  ArgoCD (Helm)                           │  │   │
+│  │   │    └── App-of-Apps → github.com/razyos/  │  │   │
+│  │   │                       charts             │  │   │
+│  │   └──────────────────────────────────────────┘  │   │
+│  │                                                  │   │
+│  │   Internet Gateway ── Route Table                │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                         │
+│  S3 (Terraform state)  +  DynamoDB (state lock)        │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Integrate with your tools
+**GitOps flow:**
 
-- [ ] [Set up project integrations](https://gitlab.com/jenkins3883827/portfolio_infra/-/settings/integrations)
+```
+git push → github.com/razyos/charts
+               │
+               └── ArgoCD (App of Apps)
+                       ├── infraset     (cert-manager, ingress-nginx)
+                       ├── monitoringset (Prometheus, Grafana)
+                       └── appset       (application workloads)
+```
 
-## Collaborate with your team
+---
 
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
+## Modules
 
-## Test and Deploy
+| Module | Responsibility |
+|--------|---------------|
+| `calculation` | Queries available AZs, filters by instance type support, calculates subnet CIDRs |
+| `network` | VPC, Internet Gateway, public subnets (multi-AZ), security groups |
+| `eks` | EKS cluster, IAM roles, managed node group, EBS volume policy |
+| `eks-addons` | VPC-CNI (IRSA), CoreDNS, kube-proxy, EBS CSI Driver |
+| `argocd` | ArgoCD Helm install, GitHub repo secret, root App-of-Apps |
 
-Use the built-in continuous integration in GitLab.
+---
 
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
+## Prerequisites
 
-***
+- Terraform >= 1.5
+- AWS CLI configured with sufficient IAM permissions
+- `kubectl` and `helm` installed
+- An SSH key pair added to your GitHub account, stored in **AWS Secrets Manager**
+- An S3 bucket and DynamoDB table for Terraform state (see `backend-config.hcl`)
 
-# Editing this README
+---
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+## Deployment
 
-## Suggestions for a good README
+**1. Configure the backend**
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Edit `backend-config.hcl` with your S3 bucket, key path, and DynamoDB table:
 
-## Name
-Choose a self-explaining name for your project.
+```hcl
+bucket         = "your-terraform-state-bucket"
+key            = "terraform/state/production/terraform.tfstate"
+region         = "us-east-1"
+encrypt        = true
+dynamodb_table = "your-terraform-lock-table"
+```
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+**2. Create your `terraform.tfvars`**
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+Copy `example.tfvars` and fill in your values:
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+cp example.tfvars terraform.tfvars
+```
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+> `terraform.tfvars` is gitignored — never commit credentials or secrets.
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+**3. Store the GitHub SSH key in Secrets Manager**
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```bash
+aws secretsmanager create-secret \
+  --name "portfolio/github-ssh-key" \
+  --secret-string "$(cat ~/.ssh/id_ed25519)"
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+**4. Run Terraform**
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+```bash
+bash run.sh
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+This initialises the backend, selects/creates the workspace, and runs `plan` → `apply`.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+**5. Bootstrap ArgoCD**
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+After the cluster is up, run `setup.sh` to configure ArgoCD with TLS and connect it to the charts repository:
 
-## License
-For open source projects, say how it is licensed.
+```bash
+bash setup.sh
+```
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+---
+
+## Day-2 Operations
+
+| Task | Command |
+|------|---------|
+| Destroy the cluster | `bash destroy.sh` |
+| Force-clean stuck ArgoCD resources | `bash cleanargo.sh` |
+| Full cluster teardown (K8s + Terraform) | `bash cleanup.sh` |
+
+---
+
+## Secrets management
+
+No secrets are committed to this repository. The GitHub SSH key used by ArgoCD is stored in AWS Secrets Manager and retrieved at apply time via a `data` source:
+
+```hcl
+data "aws_secretsmanager_secret_version" "github_ssh_key" {
+  secret_id = data.aws_secretsmanager_secret.github_ssh_key.id
+}
+```
+
+The `*.tfvars` pattern is gitignored to prevent accidental credential commits.
+
+---
+
+## Repository layout
+
+```
+portfolio-infra/
+├── main.tf                  # Root module — wires all modules together
+├── providers.tf             # AWS, Kubernetes, Helm, kubectl providers
+├── variables.tf             # Input variables
+├── outputs.tf               # Cluster endpoint, OIDC provider, VPC ID
+├── backend-config.hcl       # S3 backend configuration
+├── example.tfvars           # Reference variable file (no secrets)
+├── run.sh                   # terraform init / plan / apply wrapper
+├── setup.sh                 # Post-apply ArgoCD bootstrap
+├── destroy.sh               # Teardown with ELB cleanup
+├── cleanup.sh               # Full K8s + Terraform teardown
+├── cleanargo.sh             # Force-remove stuck ArgoCD namespace
+├── cert-manager/
+│   └── cluster-issuer.yaml  # Let's Encrypt ClusterIssuer
+├── values/
+│   └── argocd-values.yaml   # ArgoCD Helm values template
+└── modules/
+    ├── calculation/         # AZ + CIDR calculation
+    ├── network/             # VPC and subnets
+    ├── eks/                 # EKS cluster and node group
+    ├── eks-addons/          # Managed add-ons with IRSA
+    └── argocd/              # ArgoCD install + App of Apps
+```

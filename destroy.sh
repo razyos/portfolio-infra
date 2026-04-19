@@ -2,7 +2,7 @@
 WORKSPACE="$1"
 
 if [ -z "$WORKSPACE" ]; then
-  echo "No workspace specified. Usage: ./manage_workspace.sh <workspace-name>"
+  echo "No workspace specified. Usage: ./destroy.sh <workspace-name>"
   exit 1
 fi
 
