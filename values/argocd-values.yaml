@@ -2,26 +2,22 @@ server:
   ingress:
     enabled: true
     hosts:
-      - <ARGOCD_HOSTNAME>
+      - $ARGOCD_HOST
     tls:
       - secretName: argocd-server-tls
         hosts:
-          - <ARGOCD_HOSTNAME>
+          - $ARGOCD_HOST
     annotations:
       kubernetes.io/ingress.class: nginx
       cert-manager.io/cluster-issuer: "letsencrypt-prod"
 
 configs:
-  secret:
-    argocdServerAdminPassword: <ARGOCD_ADMIN_PASSWORD_BCRYPT>
-  repositories:
-    - url: git@github.com:razyos/charts.git
-      sshPrivateKey: |
-        <GITHUB_SSH_PRIVATE_KEY>
+  $ARGOCD_ADMIN_PASSWORD
+  $GITOPS_REPO_URL
 
 certificate:
   enabled: true
-  domain: <ARGOCD_HOSTNAME>
+  domain: $ARGOCD_HOST
   issuer:
     kind: ClusterIssuer
     name: letsencrypt-prod
