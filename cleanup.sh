@@ -1,8 +1,14 @@
 #!/bin/bash
-WORKSPACE="$1"
+set -e
 
-# Duration before forcing deletion (60 seconds)
-TIMEOUT_DURATION=3
+WORKSPACE="$1"
+if [ -z "$WORKSPACE" ]; then
+  echo "Usage: ./cleanup.sh <workspace-name>"
+  exit 1
+fi
+
+# Grace period before force-killing stuck kubectl processes
+TIMEOUT_DURATION=60
 
 # Get all namespaces
 namespaces=$(kubectl get namespaces -o jsonpath="{.items[*].metadata.name}")
