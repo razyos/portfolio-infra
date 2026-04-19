@@ -7,39 +7,47 @@ Production-grade AWS EKS platform provisioned with Terraform, wired to ArgoCD fo
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                        AWS VPC                          │
-│                                                         │
-│  ┌─────────────────────────────────────────────────┐   │
-│  │              Public Subnets (multi-AZ)           │   │
-│  │                                                  │   │
-│  │   ┌──────────────────────────────────────────┐  │   │
-│  │   │              EKS Cluster                 │  │   │
-│  │   │                                          │  │   │
-│  │   │  Control Plane (AWS-managed)             │  │   │
-│  │   │    ├── API logging (api/audit/auth)      │  │   │
-│  │   │    └── OIDC provider (for IRSA)          │  │   │
-│  │   │                                          │  │   │
-│  │   │  Managed Node Group                      │  │   │
-│  │   │    ├── Auto Scaling (min/desired/max)    │  │   │
-│  │   │    └── EBS volume management (IRSA)      │  │   │
-│  │   │                                          │  │   │
-│  │   │  EKS Add-ons                             │  │   │
-│  │   │    ├── VPC-CNI  (IRSA-enabled)           │  │   │
-│  │   │    ├── CoreDNS                           │  │   │
-│  │   │    ├── kube-proxy                        │  │   │
-│  │   │    └── EBS CSI Driver                    │  │   │
-│  │   │                                          │  │   │
-│  │   │  ArgoCD (Helm)                           │  │   │
-│  │   │    └── App-of-Apps → github.com/razyos/  │  │   │
-│  │   │                       charts             │  │   │
-│  │   └──────────────────────────────────────────┘  │   │
-│  │                                                  │   │
-│  │   Internet Gateway ── Route Table                │   │
-│  └─────────────────────────────────────────────────┘   │
-│                                                         │
-│  S3 (Terraform state)  +  DynamoDB (state lock)        │
-└─────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                          AWS VPC                            │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │            Public Subnets (multi-AZ)                 │   │
+│  │   Internet Gateway ── Route Table                    │   │
+│  │   NAT Gateway + EIP  (outbound for private nodes)    │   │
+│  │   Load Balancers (provisioned by ingress controller) │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │            Private Subnets (multi-AZ)                │   │
+│  │   NAT Route Table  (outbound via NAT Gateway)        │   │
+│  │                                                      │   │
+│  │   ┌──────────────────────────────────────────────┐  │   │
+│  │   │               EKS Cluster                    │  │   │
+│  │   │                                              │  │   │
+│  │   │  Control Plane (AWS-managed)                 │  │   │
+│  │   │    ├── All 5 log types (api/audit/auth/      │  │   │
+│  │   │    │   controllerManager/scheduler)          │  │   │
+│  │   │    ├── KMS encryption for secrets at rest    │  │   │
+│  │   │    └── OIDC provider (for IRSA)              │  │   │
+│  │   │                                              │  │   │
+│  │   │  Managed Node Group (private subnets)        │  │   │
+│  │   │    ├── Auto Scaling (min/desired/max)        │  │   │
+│  │   │    └── EBS volume management (IRSA)          │  │   │
+│  │   │                                              │  │   │
+│  │   │  EKS Add-ons                                 │  │   │
+│  │   │    ├── VPC-CNI  (IRSA-enabled)               │  │   │
+│  │   │    ├── CoreDNS                               │  │   │
+│  │   │    ├── kube-proxy                            │  │   │
+│  │   │    └── EBS CSI Driver                        │  │   │
+│  │   │                                              │  │   │
+│  │   │  ArgoCD (Helm)                               │  │   │
+│  │   │    └── App-of-Apps → github.com/razyos/      │  │   │
+│  │   │                       charts                 │  │   │
+│  │   └──────────────────────────────────────────────┘  │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  S3 (Terraform state)  +  DynamoDB (state lock)            │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 **GitOps flow:**
@@ -48,9 +56,9 @@ Production-grade AWS EKS platform provisioned with Terraform, wired to ArgoCD fo
 git push → github.com/razyos/charts
                │
                └── ArgoCD (App of Apps)
-                       ├── infraset     (cert-manager, ingress-nginx)
+                       ├── infraset      (cert-manager, ingress-nginx)
                        ├── monitoringset (Prometheus, Grafana)
-                       └── appset       (application workloads)
+                       └── appset        (application workloads)
 ```
 
 ---
@@ -58,12 +66,27 @@ git push → github.com/razyos/charts
 ## Modules
 
 | Module | Responsibility |
-|--------|---------------|
-| `calculation` | Queries available AZs, filters by instance type support, calculates subnet CIDRs |
-| `network` | VPC, Internet Gateway, public subnets (multi-AZ), security groups |
-| `eks` | EKS cluster, IAM roles, managed node group, EBS volume policy |
+|--------|----------------|
+| `calculation` | Queries available AZs, filters by instance type support, calculates public and private subnet CIDRs |
+| `network` | VPC, Internet Gateway, public subnets, private subnets, NAT Gateway + EIP, route tables, security groups |
+| `eks` | EKS cluster with KMS secrets encryption, IAM roles, managed node group (private subnets), scoped EBS IAM policy |
 | `eks-addons` | VPC-CNI (IRSA), CoreDNS, kube-proxy, EBS CSI Driver |
-| `argocd` | ArgoCD Helm install, GitHub repo secret, root App-of-Apps |
+| `argocd` | ArgoCD Helm install, GitHub SSH secret, root App-of-Apps |
+
+---
+
+## Security
+
+| Control | Implementation |
+|---------|----------------|
+| Node isolation | Worker nodes in private subnets — no direct inbound from the internet |
+| Outbound traffic | Nodes reach the internet only via NAT Gateway (HTTPS + intra-VPC) |
+| Secrets encryption | KMS key with automatic rotation encrypts all Kubernetes secrets at rest |
+| Audit logging | All 5 EKS control plane log types shipped to CloudWatch |
+| IRSA | VPC-CNI and EBS CSI Driver use pod-level IAM roles, not node-level |
+| IAM scoping | EBS write actions restricted to `arn:aws:ec2:*:*:volume/*` |
+| API access | `public_access_cidrs` is a required input — no default, must be restricted to office/VPN CIDR |
+| Static analysis | `tflint` 0 issues · `checkov` 66/66 checks passed |
 
 ---
 
@@ -161,6 +184,7 @@ portfolio-infra/
 ├── outputs.tf               # Cluster endpoint, OIDC provider, VPC ID
 ├── backend-config.hcl       # S3 backend configuration
 ├── example.tfvars           # Reference variable file (no secrets)
+├── .checkov.yaml            # Checkov suppression config with justifications
 ├── run.sh                   # terraform init / plan / apply wrapper
 ├── setup.sh                 # Post-apply ArgoCD bootstrap
 ├── destroy.sh               # Teardown with ELB cleanup
@@ -171,9 +195,9 @@ portfolio-infra/
 ├── values/
 │   └── argocd-values.yaml   # ArgoCD Helm values template
 └── modules/
-    ├── calculation/         # AZ + CIDR calculation
-    ├── network/             # VPC and subnets
-    ├── eks/                 # EKS cluster and node group
+    ├── calculation/         # AZ + CIDR calculation (public + private)
+    ├── network/             # VPC, subnets, NAT Gateway, security groups
+    ├── eks/                 # EKS cluster, KMS, IAM, node group
     ├── eks-addons/          # Managed add-ons with IRSA
     └── argocd/              # ArgoCD install + App of Apps
 ```
