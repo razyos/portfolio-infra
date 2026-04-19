@@ -1,0 +1,10 @@
+# Checkov configuration — intentional suppressions with justification
+#
+# CKV_AWS_38: EKS public endpoint CIDR restriction
+#   public_access_cidrs is a *required* input (no default). The operator must
+#   explicitly supply their office/VPN CIDR when running terraform apply.
+#   The example.tfvars uses RFC 5737 documentation range (192.0.2.0/24) as a
+#   placeholder, which is NOT 0.0.0.0/0. Suppressed here because checkov cannot
+#   verify the runtime value when it is a module variable with no default.
+skip-check:
+  - CKV_AWS_38

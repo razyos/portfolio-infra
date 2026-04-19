@@ -19,8 +19,8 @@ kubernetes_version      = "1.31"
 instance_type           = "t3a.medium"
 endpoint_private_access = false
 endpoint_public_access  = true
-# Restrict API server access to your office/VPN IP in production
-public_access_cidrs = ["0.0.0.0/0"]
+# Replace with your office/VPN IP before applying (e.g. "1.2.3.4/32")
+public_access_cidrs = ["192.0.2.0/24"]
 
 # ── EKS Node Group ─────────────────────────────────────────────────────────────
 node_group_name = "portfolio-ng"
