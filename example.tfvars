@@ -43,8 +43,9 @@ ebs_csi_driver_addon_version = "v1.37.0-eksbuild.1"
 argocd_namespace     = "argocd"
 argocd_chart_version = "7.7.0"
 
-# GitHub SSH key stored in AWS Secrets Manager (never commit the key itself)
+# Secrets stored in AWS Secrets Manager (never commit secrets themselves)
 github_ssh_key_secret_name = "portfolio/github-ssh-key"
+google_oauth_secret_name   = "portfolio/google-oauth-client-secret"
 github_repo_url            = "git@github.com:razyos/charts.git"
 github_repo_revision       = "main"
 infra_apps_path            = "sets"

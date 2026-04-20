@@ -60,11 +60,44 @@ data "aws_secretsmanager_secret_version" "github_ssh_key" {
   secret_id = data.aws_secretsmanager_secret.github_ssh_key.id
 }
 
+data "aws_secretsmanager_secret" "google_oauth" {
+  count = var.google_oauth_secret_name != "" ? 1 : 0
+  name  = var.google_oauth_secret_name
+}
+
+data "aws_secretsmanager_secret_version" "google_oauth" {
+  count     = var.google_oauth_secret_name != "" ? 1 : 0
+  secret_id = data.aws_secretsmanager_secret.google_oauth[0].id
+}
+
+locals {
+  argocd_values = var.google_oauth_secret_name != "" ? merge(
+    var.argocd_values,
+    {
+      configs = merge(
+        lookup(var.argocd_values, "configs", {}),
+        {
+          cm = merge(
+            lookup(lookup(var.argocd_values, "configs", {}), "cm", {}),
+            {
+              "dex.config" = replace(
+                lookup(lookup(lookup(var.argocd_values, "configs", {}), "cm", {}), "dex.config", ""),
+                "GOOGLE_OAUTH_SECRET_PLACEHOLDER",
+                data.aws_secretsmanager_secret_version.google_oauth[0].secret_string
+              )
+            }
+          )
+        }
+      )
+    }
+  ) : var.argocd_values
+}
+
 module "argocd" {
   source               = "./modules/argocd"
   argocd_namespace     = var.argocd_namespace
   argocd_chart_version = var.argocd_chart_version
-  argocd_values        = var.argocd_values
+  argocd_values        = local.argocd_values
   github_repo_url      = var.github_repo_url
   github_ssh_key       = data.aws_secretsmanager_secret_version.github_ssh_key.secret_string
   github_repo_revision = var.github_repo_revision

@@ -144,6 +144,12 @@ variable "github_ssh_key_secret_name" {
   type        = string
 }
 
+variable "google_oauth_secret_name" {
+  description = "Name of the AWS Secrets Manager secret containing the Google OAuth client secret for ArgoCD Dex"
+  type        = string
+  default     = ""
+}
+
 variable "github_repo_revision" {
   description = "GitHub repository revision (branch) to track"
   type        = string
